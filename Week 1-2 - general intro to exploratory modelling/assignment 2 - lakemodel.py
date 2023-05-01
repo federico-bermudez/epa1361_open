@@ -154,11 +154,49 @@ model.constants = [
 from ema_workbench import MultiprocessingEvaluator, ema_logging, perform_experiments
 if __name__ == "__main__":
     ema_logging.log_to_stderr(ema_logging.INFO)
+    model = Model('lakeproblem', function=lake_problem)
+
+    # Specify uncertainties
+
+    model.uncertainties = [RealParameter('mean', 0.01, 0.05),
+                           RealParameter('stdev', 0.001, 0.005),
+                           RealParameter('b', 0.1, 0.45),
+                           RealParameter('q', 2, 4.5),
+                           RealParameter('delta', 0.93, 0.99)]
+
+    # Set levers, one for each time step
+
+    model.levers = [RealParameter("c1", -2, 2),
+                    RealParameter("c2", -2, 2),
+                    RealParameter("r1", 0, 2),
+                    RealParameter("r2", 0, 2),
+                    RealParameter("w1", 0, 1)]
 
 
-    with MultiprocessingEvaluator(model) as evaluator:
-        results = evaluator.perform_experiments(scenarios=1000, policies=4)
+    def process_p(values):
+        values = np.asarray(values)
+        values = np.mean(values, axis=0)
+        return np.max(values)
 
+
+    # Specify outcomes
+
+    model.outcomes = [ScalarOutcome('max_P'),
+                      ScalarOutcome('utility'),
+                      ScalarOutcome('inertia'),
+                      ScalarOutcome('reliability')
+                      ]
+
+    # why is this needed?
+    model.constants = [
+        Constant("alpha", 0.41),
+        Constant("nsamples", 150),
+    ]
+    # generate some random policies by sampling over levers
+    n_scenarios = 1000
+    n_policies = 4
+    with MultiprocessingEvaluator(lake_problem) as evaluator:
+        res = evaluator.perform_experiments(n_scenarios, n_policies, lever_sampling=Samplers.MC)
 #from ema_workbench import SequentialEvaluator
 
 #with SequentialEvaluator(model) as evaluator:
@@ -177,8 +215,8 @@ if __name__ == "__main__":
 
 
 import pandas as pd
-data = pd.DataFrame(outcomes)
-
+data = pd.DataFrame(res)
+print(data)
 
 # In[18]:
 
